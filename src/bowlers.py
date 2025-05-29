@@ -14,10 +14,12 @@ class Agent(ABC):
         pass
     
     def step(self, self_history, adversary_history) -> int:
+
+        self.update(self_history, adversary_history)
+
         if not adversary_history:
             return self.initial_step()
         else:
-            self.update(self_history, adversary_history)
             return self.history_step(self_history, adversary_history)
     
     def update(self, self_history, adversary_history) -> None:
@@ -44,6 +46,8 @@ class PlayersModeAgent(Agent): # The adversary may have a favourite number
         self.count = 0
     
     def update(self, self_history, adversary_history):
+        if not adversary_history: return
+        
         if adversary_history[-1] == self.mode:
             self.count += 1
         else:
@@ -54,6 +58,9 @@ class PlayersModeAgent(Agent): # The adversary may have a favourite number
                 self.count -= 1
 
     def history_step(self, self_history, adversary_history):
+        if self.mode is None:
+            print(f"{self.count=}")
+            raise ValueError("Mode has not been set. Call update() with a valid adversary history first.")
         return self.mode
 
 
@@ -64,6 +71,7 @@ class AntiPlayersModeAgent(Agent): # The adversary may try to play a number that
         self.frequency = torch.zeros(6, dtype=torch.int32) # Frequency of each number from 1 to 6
 
     def update(self, self_history, adversary_history):
+        if not adversary_history: return
         self.frequency[adversary_history[-1] - 1] += 1
 
     def history_step(self, self_history, adversary_history):
@@ -77,6 +85,7 @@ class AntiComputersModeAgent(Agent): # The adversary may try to play a number th
         self.frequency = torch.zeros(6, dtype=torch.int32)
     
     def update(self, self_history, adversary_history):
+        if not self_history: return
         self.frequency[self_history[-1] - 1] += 1
     
     def history_step(self, self_history, adversary_history):
@@ -90,6 +99,7 @@ class FrequencyAgent(Agent): # The adversary may have a couple of favourite numb
         self.frequency = torch.ones(6, dtype=torch.float32) # Using ones for better smoothing. Float because multinomial only supports float tensors.
 
     def update(self, self_history, adversary_history):
+        if not adversary_history: return
         self.frequency[adversary_history[-1] - 1] += 1 # Increment frequency of the last action taken by the adversary
 
     def history_step(self, self_history, adversary_history):

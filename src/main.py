@@ -5,7 +5,7 @@ import bowlers
 import batters
 
 
-DEBUG_MODE = True
+DEBUG_MODE = False
 
 
 def bowling_loss_fn(player_move, comp_move):
@@ -27,24 +27,24 @@ class MultiArmedBandit: # Experts-as-Arms
     
     def select_agent(self) -> bowlers.Agent:
         probs = torch.softmax(self.weights, dim=0)
-        assert torch.isclose(probs.sum(), torch.tensor(1.0), atol=1e-5) # god I spent so long debugging this
         return self.agents[torch.multinomial(probs, num_samples=1).item()]
 
     def select_arm(self, self_history, adversary_history) -> int:
         return self.select_agent().step(self_history, adversary_history)
 
     def update(self, player_history, computer_history) -> None:
-        # Nothing to train over.
-        if len(player_history) == 1 or len(computer_history) == 1:
-            return
+        if not player_history or not computer_history: return
 
         # Get losses
         losses = torch.zeros(self.num_agents, dtype=torch.float32)
         for i, agent in enumerate(self.agents):
             # Use history_step instead of step to avoid the update(); we wouldn't want the agent we just played to update twice.
-            agent_arm = agent.history_step(computer_history[:-1], player_history[:-1]) # Train on the history excluding the last move
+            agent_arm = agent.step(computer_history[:-1], player_history[:-1]) # Forward pass on the history, excluding the last move.
             losses[i] = bowling_loss_fn(player_history[-1], agent_arm)                 # Test on last move
             if self.mode == "batting": losses[i] = -losses[i]
+
+            agent.update(computer_history, player_history) # Update the agent with the full history
+
         
         self.weights -= self.lr * losses
 
@@ -70,6 +70,9 @@ class HandCricketGame:
         computer_history = []
 
         while True:
+
+            # Computer move
+            comp_move = bandit.select_arm(self_history=computer_history, adversary_history=player_history)
             
             # Player move
             try:
@@ -81,9 +84,7 @@ class HandCricketGame:
                 print("Invalid input. Enter a number.")
                 continue
             
-            # Computer move
-            comp_move = bandit.select_arm(self_history=computer_history, adversary_history=player_history)
-            print(f"Computer bowls: {comp_move}")
+            print(f"AI bowls: {comp_move}")
 
             # Only after both moves are made, do we append them to the histories
             player_history.append(player_move)
@@ -94,19 +95,22 @@ class HandCricketGame:
                 break
             else:
                 self.player_score += player_move
-                print(f"=> Your runs: {self.player_score}")
+                print(f"=> Your runs: {self.player_score}\n")
 
             
             bandit.update(player_history, computer_history)
 
     def computer_bats(self):
-        print("\n== Computer is batting! ==\n")
+        print("\n== AI is batting! ==\n")
         bandit = MultiArmedBandit(mode="batting", lr=0.1)
         self.computer_score = 0
         player_history = []
         computer_history = []
 
         while True:
+
+            # Computer move
+            comp_move = bandit.select_arm(computer_history, player_history)
             
             # Player move
             try:
@@ -117,28 +121,28 @@ class HandCricketGame:
             except ValueError:
                 print("Invalid input. Enter a number.")
                 continue
-
-            # Computer move
-            comp_move = bandit.select_arm(computer_history, player_history)
-            print(f"Computer bats: {comp_move}")
+            
+            print(f"AI bats: {comp_move}")
 
             # Only after both moves are made, do we append them to the histories
             player_history.append(player_move)
             computer_history.append(comp_move)
 
             if player_move == comp_move:
-                print("=> Computer is OUT! <=\n")
+                print("=> AI is OUT! <=\n")
                 break
             else:
                 self.computer_score += comp_move
-                print(f"=> Computer's runs: {self.computer_score}")
-                print(f"=> To chase: {self.player_score - self.computer_score}")
+                if self.computer_score > self.player_score: break
+                print(f"=> AI's runs: {self.computer_score}")
+                print(f"=> To chase: {self.player_score - self.computer_score}\n")
 
             bandit.update(player_history, computer_history)
 
     def play(self):
-        print("Welcome to Hand Cricket!")
-        print("Rules: Choose a number between 1 and 6. If both choose the same, the batsman is OUT.")
+        print("\nWelcome to Hand Cricket!")
+        print("Rules: Choose a number between 1 and 6.\nIf both choose the same, the batsman is OUT.")
+
         self.player_bats()
         print(f"\nYour final score: {self.player_score}")
         self.computer_bats()
