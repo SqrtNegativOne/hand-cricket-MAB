@@ -8,3 +8,7 @@
 - Minimax game; One player tries to maximize score while the other tries to minimize it.
 
 To satisfy the above conditions the Hedge algorithm was used.
+
+I didn't want to make the thirteen-billionth rock-paper-scissor algorithm so I made this instead. Because the game is much more complex and there is little training data, the model isn't very good. But still.
+
+The Bowler agent has your typical strategies from RPS but also some strategies unique to this game. I couldn't think of anything for the Batsman agent, so it just tries to do the opposite of every Bowler agent (a counter-bot) (Experts-As-Arms).
