@@ -68,6 +68,7 @@ class HandCricketGame:
         self.player_score = 0
         player_history = []
         computer_history = []
+        strikes = 0
 
         while True:
 
@@ -92,7 +93,10 @@ class HandCricketGame:
 
             if player_move == comp_move:
                 print("=> You are OUT! <=\n")
-                break
+                strikes += 1
+                if strikes >= 3:  # Player gets 3 lives
+                    print("You have lost all your lives!")
+                    break
             else:
                 self.player_score += player_move
                 print(f"=> Your runs: {self.player_score}\n")
@@ -106,6 +110,7 @@ class HandCricketGame:
         self.computer_score = 0
         player_history = []
         computer_history = []
+        strikes = 0
 
         while True:
 
@@ -130,7 +135,10 @@ class HandCricketGame:
 
             if player_move == comp_move:
                 print("=> AI is OUT! <=\n")
-                break
+                strikes += 1
+                if strikes >= 3:  # AI gets 3 lives
+                    print("AI has lost all its lives!")
+                    break
             else:
                 self.computer_score += comp_move
                 if self.computer_score > self.player_score: break
@@ -141,7 +149,7 @@ class HandCricketGame:
 
     def play(self):
         print("\nWelcome to Hand Cricket!")
-        print("Rules: Choose a number between 1 and 6.\nIf both choose the same, the batsman is OUT.")
+        print("Rules: Choose a number between 1 and 6.\nIf both choose the same, the batsman is OUT.\nThe batsman gets three lives to bat.\nThe player bats first, then the AI.\nWhoever scores more runs wins!\n")
 
         self.player_bats()
         print(f"\nYour final score: {self.player_score}")
