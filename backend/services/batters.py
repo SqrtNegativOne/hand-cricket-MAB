@@ -3,7 +3,7 @@ import random
 import torch
 import torch.nn as nn
 
-import bowlers
+import services.bowlers as bowlers
 
 
 class MiddleFrequencyAgent(bowlers.Agent): # Avoid Bowler's favourite and least favourite numbers
