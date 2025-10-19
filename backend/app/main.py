@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from services.game import HandCricketGame
+from app.services.game import HandCricketGame
+from loguru import logger
 
 
 class MoveRequest(BaseModel):
@@ -54,3 +55,13 @@ def get_score():
         "strikes": game.strikes,
         "mode": game.mode,
     }
+
+
+def main():
+    import uvicorn
+    logger.info("Starting Hand Cricket API server...")
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+if __name__ == "__main__":
+    main()

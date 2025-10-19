@@ -1,8 +1,8 @@
 import torch
 import pprint
 
-import services.bowlers as bowlers
-import services.batters as batters
+import app.services.bowlers as bowlers
+import app.services.batters as batters
 
 
 DEBUG_MODE = False
