@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from app.services.game import HandCricketGame
+from app.services.game import Game
+from app.schemas import UserIs, BatterState
 from loguru import logger
 
 
@@ -10,8 +11,7 @@ class MoveRequest(BaseModel):
 class StartBowlingRequest(BaseModel):
     target_score: int
 
-
-game = HandCricketGame()
+game = None
 
 app = FastAPI(title="Hand Cricket API")
 
@@ -25,36 +25,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.post("/start/batting")
+@app.post("/start_batting")
 def start_batting():
-    game.start_batting()
-    return {"message": "Player batting started. You have 3 lives."}
+    global game
+    game = Game(mode=UserIs.BATTING)
+    logger.info("Game started in batting mode.")
+    return {"message": "Game started in batting mode."}
 
-
-@app.post("/start/bowling")
-def start_bowling(req: StartBowlingRequest):
-    game.start_bowling(req.target_score)
-    return {"message": f"AI batting started. Target: {req.target_score}"}
-
+@app.post("/start_bowling")
+def start_bowling(request: StartBowlingRequest):
+    global game
+    game = Game(mode=UserIs.BOWLING, target=request.target_score)
+    logger.info(f"Game started in bowling mode with target score {request.target_score}.")
+    return {"message": f"Game started in bowling mode with target score {request.target_score}."}
 
 @app.post("/move")
-def play_move(req: MoveRequest):
+def make_move(request: MoveRequest) -> BatterState:
+    global game
+    if game is None:
+        raise HTTPException(status_code=400, detail="Game not started. Please start a game first.")
+    
     try:
-        result = game.step(req.move)
-        return result
+        result = game.step(user_move=request.move)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.get("/score")
-def get_score():
-    return {
-        "player_score": game.player_score,
-        "computer_score": game.computer_score,
-        "strikes": game.strikes,
-        "mode": game.mode,
-    }
+    
+    return result
 
 
 def main():

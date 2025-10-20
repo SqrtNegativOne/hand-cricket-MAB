@@ -1,137 +1,66 @@
-import torch
-import pprint
-
-import app.services.bowlers as bowlers
-import app.services.batters as batters
+from app.services.bandit import MultiArmedBandit as Bandit
+from app.schemas import UserIs, BatterState
 
 
-DEBUG_MODE = False
-
-
-def bowling_loss_fn(player_move, comp_move):
-    return 0 if player_move == comp_move else player_move
-
-
-class MultiArmedBandit: # Experts-as-Arms
-    def __init__(self, mode, lr=0.1):
-        if mode == "bowling":
-            self.agents = bowlers.bowlers
-        elif mode == "batting":
-            self.agents = batters.batters
-        else:
-            raise ValueError("Invalid mode. Choose 'bowling' or 'batting'.")
-        self.mode = mode
-        self.num_agents = len(self.agents)
-        self.weights = torch.zeros(self.num_agents, dtype=torch.float32) # Log-counts
-        self.lr = lr
+class Game:
+    def __init__(self, mode: UserIs, target: int = -1):
+        self.user_mode = mode
+        self.bandit = Bandit(mode=mode)
+        self.runs = 0
+        self.wickets_left = 5
+        self._bat_history = []
+        self._bowl_history = []
+        self.target = target
     
-    def select_agent(self) -> bowlers.Agent:
-        probs = torch.softmax(self.weights, dim=0)
-        idx = int(torch.multinomial(probs, num_samples=1).item())
-        return self.agents[idx]
-
-    def select_arm(self, self_history, adversary_history) -> int:
-        return self.select_agent().step(self_history, adversary_history)
-
-    def update(self, player_history, computer_history) -> None:
-        if not player_history or not computer_history: return
-
-        # Get losses
-        losses = torch.zeros(self.num_agents, dtype=torch.float32)
-        for i, agent in enumerate(self.agents):
-            # Use history_step instead of step to avoid the update(); we wouldn't want the agent we just played to update twice.
-            agent_arm = agent.step(computer_history[:-1], player_history[:-1]) # Forward pass on the history, excluding the last move.
-            losses[i] = bowling_loss_fn(player_history[-1], agent_arm)                 # Test on last move
-            if self.mode == "batting": losses[i] = -losses[i]
-
-            agent.update(computer_history, player_history) # Update the agent with the full history
-
-        
-        self.weights -= self.lr * losses
-
-        if DEBUG_MODE:
-            print()
-            print(f"{player_history=}")
-            print(f"{computer_history=}")
-            pprint.pprint({str(agent) : loss.item() for agent, loss in zip(self.agents, losses)})
-            pprint.pprint({str(agent) : round(weight.item()*100, 2) for agent, weight in zip(self.agents, torch.softmax(self.weights, dim=0))}) # Updated weights
-            print()
-
-
-class HandCricketGame:
-    def __init__(self):
-        self.player_score = 0
-        self.computer_score = 0
-        self.player_history = []
-        self.computer_history = []
-        self.strikes = 0
-        self.bandit = None
-        self.mode = None
-
-    def start_batting(self):
-        self.mode = "batting"
-        self.bandit = MultiArmedBandit(mode="bowling", lr=0.1)
-        self.player_score = 0
-        self.computer_score = 0
-        self.strikes = 0
-        self.player_history = []
-        self.computer_history = []
-
-    def start_bowling(self, target_score):
-        self.mode = "bowling"
-        self.bandit = MultiArmedBandit(mode="batting", lr=0.1)
-        self.player_score = target_score
-        self.computer_score = 0
-        self.strikes = 0
-        self.player_history = []
-        self.computer_history = []
-
-    def step(self, player_move: int):
-        if player_move < 1 or player_move > 6:
-            raise ValueError("Move must be between 1 and 6")
+    @staticmethod
+    def return_score(user_move: int) -> BatterState:
+        match user_move:
+            case 1: return BatterState.Scored1
+            case 2: return BatterState.Scored2
+            case 3: return BatterState.Scored3
+            case 4: return BatterState.Scored4
+            case 5: return BatterState.Scored5
+            case 6: return BatterState.Scored6
+        raise ValueError("user_move must be between 1 and 6.")
+    
+    def step(self, user_move: int) -> BatterState:
+        if user_move < 1 or user_move > 6:
+            raise ValueError("user_move must be between 1 and 6.")
         
         if self.bandit is None:
             raise ValueError("Game not started. Call start_batting or start_bowling first.")
 
-        comp_move = self.bandit.select_arm(
-            self.computer_history if self.mode == "bowling" else self.player_history,
-            self.player_history if self.mode == "bowling" else self.computer_history,
-        )
+        if self.user_mode == UserIs.BATTING:
+            comp_move = self.bandit.select_arm(
+                comp_history=self._bowl_history,
+                user_history=self._bat_history
+            )
+            self._bat_history.append(user_move)
+            self._bowl_history.append(comp_move)
+            self.bandit.update(
+                user_history=self._bat_history,
+                comp_history=self._bowl_history
+            )
+        else: # Bowling mode
+            comp_move = self.bandit.select_arm(
+                comp_history=self._bat_history,
+                user_history=self._bowl_history
+            )
+            self._bowl_history.append(user_move)
+            self._bat_history.append(comp_move)
+            self.bandit.update(
+                user_history=self._bowl_history,
+                comp_history=self._bat_history
+            )
 
-        self.player_history.append(player_move)
-        self.computer_history.append(comp_move)
-
-        result = {"player_move": player_move, "comp_move": comp_move}
-
-        # Player batting
-        if self.mode == "batting":
-            if player_move == comp_move:
-                self.strikes += 1
-                result["out"] = True
-                if self.strikes >= 3:
-                    result["game_over"] = True
-                else:
-                    result["game_over"] = False
-            else:
-                self.player_score += player_move
-                result["out"] = False
-                result["score"] = self.player_score
-        # Player bowling
-        else:
-            if player_move == comp_move:
-                self.strikes += 1
-                result["out"] = True
-                if self.strikes >= 3:
-                    result["game_over"] = True
-                else:
-                    result["game_over"] = False
-            else:
-                self.computer_score += comp_move
-                result["out"] = False
-                result["score"] = self.computer_score
-                result["to_chase"] = max(self.player_score - self.computer_score, 0)
-                if self.computer_score > self.player_score:
-                    result["game_over"] = True
-
-        self.bandit.update(self.player_history, self.computer_history)
-        return result
+        # Calculate game state.
+        if comp_move != user_move: # Not Out
+            self.runs += user_move if self.user_mode == UserIs.BATTING else comp_move
+            if self.target != -1:
+                if self.runs >= self.target:
+                    return BatterState.Won
+            return self.return_score(user_move)
+        self.wickets_left -= 1
+        if not self.wickets_left:
+            return BatterState.Lost
+        return BatterState.Out
