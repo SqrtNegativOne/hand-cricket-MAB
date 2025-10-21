@@ -1,9 +1,12 @@
 from app.services.bandit import MultiArmedBandit as Bandit
-from app.schemas import UserIs, BatterState
+from app.schemas import UserIs, BatterHas
 
 
 class Game:
     def __init__(self, mode: UserIs, target: int = -1):
+        """
+        target = -1 means the game will go on until all wickets are out.
+        """
         self.user_mode = mode
         self.bandit = Bandit(mode=mode)
         self.runs = 0
@@ -13,17 +16,17 @@ class Game:
         self.target = target
     
     @staticmethod
-    def return_score(user_move: int) -> BatterState:
+    def return_score(user_move: int) -> BatterHas:
         match user_move:
-            case 1: return BatterState.Scored1
-            case 2: return BatterState.Scored2
-            case 3: return BatterState.Scored3
-            case 4: return BatterState.Scored4
-            case 5: return BatterState.Scored5
-            case 6: return BatterState.Scored6
+            case 1: return BatterHas.Scored1
+            case 2: return BatterHas.Scored2
+            case 3: return BatterHas.Scored3
+            case 4: return BatterHas.Scored4
+            case 5: return BatterHas.Scored5
+            case 6: return BatterHas.Scored6
         raise ValueError("user_move must be between 1 and 6.")
     
-    def step(self, user_move: int) -> BatterState:
+    def step(self, user_move: int) -> BatterHas:
         if user_move < 1 or user_move > 6:
             raise ValueError("user_move must be between 1 and 6.")
         
@@ -56,11 +59,10 @@ class Game:
         # Calculate game state.
         if comp_move != user_move: # Not Out
             self.runs += user_move if self.user_mode == UserIs.BATTING else comp_move
-            if self.target != -1:
-                if self.runs >= self.target:
-                    return BatterState.Won
+            if self.target != -1 and self.runs >= self.target:
+                    return BatterHas.Won
             return self.return_score(user_move)
         self.wickets_left -= 1
         if not self.wickets_left:
-            return BatterState.Lost
-        return BatterState.Out
+            return BatterHas.Lost
+        return BatterHas.Out

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from app.services.game import Game
-from app.schemas import UserIs, BatterState
+from app.schemas import UserIs, BatterHas
 from loguru import logger
 
 
@@ -40,7 +40,7 @@ def start_bowling(request: StartBowlingRequest):
     return {"message": f"Game started in bowling mode with target score {request.target_score}."}
 
 @app.post("/move")
-def make_move(request: MoveRequest) -> BatterState:
+def make_move(request: MoveRequest) -> BatterHas:
     global game
     if game is None:
         raise HTTPException(status_code=400, detail="Game not started. Please start a game first.")
