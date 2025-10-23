@@ -1,9 +1,9 @@
 [project]
-name = "backend"
+name = "hand-cricket-backend"
 version = "0.1.0"
-description = "Add your description here"
+description = "Backend for hand cricket."
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = "==3.13" # Must match Dockerfile Python version, and PyTorch doesn't have 3.14 support.
 dependencies = [
     "fastapi>=0.119.0",
     "loguru>=0.7.3",

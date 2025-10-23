@@ -70,7 +70,31 @@ const App: React.FC = () => {
         setMessage(`You ${result.toLowerCase()}.`);
       }
     } catch (err: any) {
-      setMessage(err.response?.data?.detail || "Error making move.");
+      if (axios.isAxiosError(err)) {
+        if (err.response) {
+          const status = err.response.status;
+          const data = err.response.data;
+
+          if (status === 400) {
+            setMessage(data.detail || "Invalid move. Try again.");
+          } else if (status === 403) {
+            setMessage("You're not allowed to make this move.");
+          } else if (status === 404) {
+            setMessage("Server endpoint not found.");
+          } else if (status === 500) {
+            setMessage("Server error. Please try again later.");
+          } else {
+            setMessage(data.detail || "Unexpected error occurred.");
+          }
+        } else if (err.request) {
+          setMessage("No response from server. Check your connection.");
+        } else {
+          setMessage(`Request error: ${err.message}`);
+        }
+      } else {
+        setMessage("An unknown error occurred.");
+        console.log(err);
+      }
     }
   };
 

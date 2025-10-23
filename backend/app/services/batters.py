@@ -13,6 +13,7 @@ class MiddleFrequencyAgent(bowlers.Agent): # Avoid Bowler's favourite and least 
         self.counts = torch.zeros(6, dtype=torch.int32)  # Counts for each number from 1 to 6
     
     def update(self, self_history, adversary_history):
+        if not adversary_history: return
         self.counts[adversary_history[-1] - 1] += 1
     
     def history_step(self, self_history, adversary_history):
